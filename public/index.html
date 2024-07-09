@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: var(--background-color, #181818);
+            color: #ffffff;
+        }
+
+        #music-list {
+            width: 30%;
+            padding: 20px;
+            border-right: 1px solid #444;
+            overflow-y: auto;
+            background-color: #282828;
+        }
+
+        #music-list h2 {
+            margin-top: 0;
+        }
+
+        #music-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #music-list li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #music-list li:hover {
+            background-color: #444;
+        }
+
+        #playlists {
+            margin-top: 20px;
+        }
+
+        #now-playing {
+            width: 70%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #1e1e1e;
+        }
+
+        #now-playing img {
+            width: 200px;
+            height: 200px;
+            border-radius: 10px;
+        }
+
+        #now-playing h2, #now-playing h3 {
+            margin: 10px 0;
+        }
+
+        #time-bar {
+            width: 100%;
+            margin-top: 10px;
+            appearance: none;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #444;
+        }
+
+        #time-bar::-webkit-progress-bar {
+            background-color: #444;
+            border-radius: 5px;
+        }
+
+        #time-bar::-webkit-progress-value {
+            background-color: #007bff;
+            border-radius: 5px;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        #controls button {
+            margin: 0 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #controls button:hover {
+            background-color: #0056b3;
+        }
+
+        .looping {
+            background-color: #28a745;
+        }
+
+        .looping:hover {
+            background-color: #218838;
+        }
+
+        /* Popup styles */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            width: 300px;
+        }
+
+        .popup h3 {
+            margin-top: 0;
+        }
+
+        .popup ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .popup li {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+            cursor: pointer;
+        }
+
+        .popup li.selected {
+            background-color: #007bff;
+        }
+
+        .popup button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .popup button:disabled {
+            background-color: #555;
+        }
+
+        /* Overlay styles */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div id="music-list">
+        <h2>Music Files</h2>
+        <ul id="music-files"></ul>
+        <div id="playlists">
+            <h2>Playlists</h2>
+            <ul id="playlist-files"></ul>
+            <button id="add-playlist-button">Add Playlist</button>
+        </div>
+    </div>
+    <div id="now-playing">
+        <img src="https://i.ibb.co/4PrH2w8/modmusic.png" alt="Album Art" id="album-art">
+        <h2 id="song-title">No song playing</h2>
+        <h3 id="song-artist">Unknown Artist</h3>
+        <progress id="time-bar" value="0" max="100"></progress>
+        <div id="controls">
+            <button id="prev-button">Previous</button>
+            <button id="play-button">Play</button>
+            <button id="next-button">Next</button>
+            <button id="loop-button">Loop</button>
+        </div>
+    </div>
+
+    <!-- Playlist Popup -->
+    <div class="popup" id="playlist-popup">
+        <h3>Select Songs</h3>
+        <ul id="playlist-song-selection"></ul>
+        <button id="name-playlist-button">Name Playlist</button>
+    </div>
+
+    <!-- Delete Confirmation Popup -->
+    <div class="popup" id="delete-popup">
+        <h3>Delete Playlist?</h3>
+        <button id="confirm-delete-button">Delete</button>
+        <button id="cancel-delete-button">Cancel</button>
+    </div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('/music')
+                .then(response => response.json())
+                .then(files => {
+                    const musicFilesElement = document.getElementById('music-files');
+                    files.forEach(file => {
+                        const li = document.createElement('li');
+                        li.textContent = file;
+                        li.addEventListener('click', () => playMusic(file));
+                        musicFilesElement.appendChild(li);
+                    });
+                });
+
+            document.getElementById('play-button').addEventListener('click', togglePlay);
+            document.getElementById('prev-button').addEventListener('click', playPrevious);
+            document.getElementById('next-button').addEventListener('click', playNext);
+            document.getElementById('loop-button').addEventListener('click', toggleLoop);
+            document.getElementById('add-playlist-button').addEventListener('click', showAddPlaylistPopup);
+            document.getElementById('name-playlist-button').addEventListener('click', createPlaylist);
+            document.getElementById('confirm-delete-button').addEventListener('click', confirmDeletePlaylist);
+            document.getElementById('cancel-delete-button').addEventListener('click', closeDeletePopup);
+
+            fetch('/playlists')
+                .then(response => response.json())
+                .then(playlists => {
+                    const playlistFilesElement = document.getElementById('playlist-files');
+                    playlists.forEach(playlist => {
+                        const li = document.createElement('li');
+                        li.textContent = playlist;
+                        li.addEventListener('click', () => selectPlaylist(playlist));
+                        li.addEventListener('contextmenu', (event) => showDeletePopup(event, playlist));
+                        playlistFilesElement.appendChild(li);
+                    });
+                });
+        });
+
+        let currentSongIndex = -1;
+        let isPlaying = false;
+        let isLooping = false;
+        let audio = new Audio();
+        let currentPlaylist = null;
+        let playlists = [];
+        let playlistToDelete = null;
+
+        function updateNowPlaying(file) {
+            document.getElementById('song-title').textContent = file;
+            document.getElementById('song-artist').textContent = 'Unknown Artist'; // Update with actual artist info if available
+            console.log(`Now playing: ${file}`);
+            ipcRenderer.send('update-discord-rpc', file, 'Unknown duration'); // Initial duration
+        }
+
+        function playMusic(file) {
+            currentSongIndex = Array.from(document.getElementById('music-files').children).findIndex(li => li.textContent === file);
+            audio.src = `/music/${file}`;
+            audio.play();
+            isPlaying = true;
+            updateNowPlaying(file);
+            document.getElementById('play-button').textContent = 'Pause';
+
+            audio.addEventListener('loadedmetadata', () => {
+                const duration = audio.duration ? new Date(audio.duration * 1000).toISOString().substr(11, 8) : 'Unknown duration';
+                document.getElementById('time-bar').max = audio.duration;
+            });
+
+            audio.addEventListener('timeupdate', () => {
+                document.getElementById('time-bar').value = audio.currentTime;
+            });
+
+            audio.addEventListener('ended', () => {
+                if (isLooping) {
+                    audio.currentTime = 0;
+                    audio.play();
+                } else {
+                    playNext();
+                }
+            });
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                audio.pause();
+                document.getElementById('play-button').textContent = 'Play';
+            } else {
+                audio.play();
+                document.getElementById('play-button').textContent = 'Pause';
+            }
+            isPlaying = !isPlaying;
+        }
+
+        function playNext() {
+            if (currentPlaylist) {
+                currentSongIndex++;
+                if (currentSongIndex >= currentPlaylist.songs.length) {
+                    currentSongIndex = 0;
+                }
+                playMusic(currentPlaylist.songs[currentSongIndex]);
+            } else {
+                currentSongIndex++;
+                const musicFiles = document.getElementById('music-files').children;
+                if (currentSongIndex >= musicFiles.length) {
+                    currentSongIndex = 0;
+                }
+                playMusic(musicFiles[currentSongIndex].textContent);
+            }
+        }
+
+        function playPrevious() {
+            if (currentPlaylist) {
+                currentSongIndex--;
+                if (currentSongIndex < 0) {
+                    currentSongIndex = currentPlaylist.songs.length - 1;
+                }
+                playMusic(currentPlaylist.songs[currentSongIndex]);
+            } else {
+                currentSongIndex--;
+                const musicFiles = document.getElementById('music-files').children;
+                if (currentSongIndex < 0) {
+                    currentSongIndex = musicFiles.length - 1;
+                }
+                playMusic(musicFiles[currentSongIndex].textContent);
+            }
+        }
+
+        function toggleLoop() {
+            isLooping = !isLooping;
+            document.getElementById('loop-button').classList.toggle('looping');
+        }
+
+        function showAddPlaylistPopup() {
+            document.getElementById('playlist-popup').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+
+            const playlistSongSelection = document.getElementById('playlist-song-selection');
+            playlistSongSelection.innerHTML = '';
+            const musicFiles = document.getElementById('music-files').children;
+            for (const li of musicFiles) {
+                const songLi = document.createElement('li');
+                songLi.textContent = li.textContent;
+                songLi.addEventListener('click', () => {
+                    songLi.classList.toggle('selected');
+                });
+                playlistSongSelection.appendChild(songLi);
+            }
+        }
+
+        function createPlaylist() {
+            const selectedSongs = Array.from(document.getElementById('playlist-song-selection').children)
+                .filter(li => li.classList.contains('selected'))
+                .map(li => li.textContent);
+            if (selectedSongs.length === 0) {
+                alert('Please select at least one song.');
+                return;
+            }
+            const playlistName = prompt('Enter playlist name:');
+            if (!playlistName) {
+                alert('Please enter a valid name.');
+                return;
+            }
+            const playlist = { name: playlistName, songs: selectedSongs };
+            playlists.push(playlist);
+
+            const playlistFilesElement = document.getElementById('playlist-files');
+            const li = document.createElement('li');
+            li.textContent = playlistName;
+            li.addEventListener('click', () => selectPlaylist(playlist));
+            li.addEventListener('contextmenu', (event) => showDeletePopup(event, playlist));
+            playlistFilesElement.appendChild(li);
+
+            closeAddPlaylistPopup();
+        }
+
+        function selectPlaylist(playlist) {
+            currentPlaylist = playlist;
+            currentSongIndex = 0;
+            playMusic(playlist.songs[currentSongIndex]);
+        }
+
+        function showDeletePopup(event, playlist) {
+            event.preventDefault();
+            playlistToDelete = playlist;
+            document.getElementById('delete-popup').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function confirmDeletePlaylist() {
+            playlists = playlists.filter(p => p !== playlistToDelete);
+            const playlistFilesElement = document.getElementById('playlist-files');
+            playlistFilesElement.innerHTML = '';
+            playlists.forEach(playlist => {
+                const li = document.createElement('li');
+                li.textContent = playlist.name;
+                li.addEventListener('click', () => selectPlaylist(playlist));
+                li.addEventListener('contextmenu', (event) => showDeletePopup(event, playlist));
+                playlistFilesElement.appendChild(li);
+            });
+            closeDeletePopup();
+        }
+
+        function closeAddPlaylistPopup() {
+            document.getElementById('playlist-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function closeDeletePopup() {
+            document.getElementById('delete-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
