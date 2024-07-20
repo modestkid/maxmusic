@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Max Music</title>
+    <title>Music Player</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -276,14 +276,14 @@
         function updateNowPlaying(file) {
             document.getElementById('song-title').textContent = file;
             document.getElementById('song-artist').textContent = 'Unknown Artist'; // Update with actual artist info if available
-            console.log(Now playing: ${file});
+            console.log(`Now playing: ${file}`);
             ipcRenderer.send('update-discord-rpc', file, 'Unknown duration'); // Initial duration
         }
 
         function playMusic(file, fromPlaylist = true) {
             isPlaylistActive = fromPlaylist;
             currentSongIndex = fromPlaylist && currentPlaylist ? currentPlaylist.indexOf(file) : Array.from(document.getElementById('music-files').children).findIndex(li => li.textContent === file);
-            audio.src = /music/${file};
+            audio.src = `/music/${file}`;
             audio.play();
             isPlaying = true;
             updateNowPlaying(file);
@@ -408,7 +408,7 @@
         function namePlaylist() {
             let playlistName = document.getElementById('playlist-name').value.trim();
             if (playlistName === '') {
-                playlistName = Playlist ${playlists.length + 1};
+                playlistName = `Playlist ${playlists.length + 1}`;
             }
 
             const selectedSongs = document.querySelectorAll('#playlist-song-selection li.selected');
@@ -462,7 +462,7 @@
         }
 
         function selectPlaylist(name) {
-            fetch(/playlists/${name})
+            fetch(`/playlists/${name}`)
                 .then(response => response.json())
                 .then(playlist => {
                     currentPlaylist = playlist.songs;
