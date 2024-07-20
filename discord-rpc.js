@@ -25,8 +25,8 @@ function setActivity(song, duration) {
         startTimestamp: Date.now(),
         largeImageKey: 'bigimage', // Replace with your image key
         largeImageText: 'Max Music',
-        SmallImageKey: 'smallimage', // Replace with your image key
-        SmallImageText: 'by modestkidstudio',
+        smallImageKey: 'smallimage', // Replace with your image key
+        smallImageText: 'by modestkidstudio',
         instance: false,
     }).catch(console.error);
 }
