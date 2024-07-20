@@ -4,9 +4,10 @@ const express = require('express');
 const formidable = require('formidable');
 const fs = require('fs');
 const { setActivity, startRpc } = require('./discord-rpc');
+const { updateFiles } = require('./updatescript');
 
 const expressApp = express();
-const port = 3400;
+const port = 3000;
 
 const musicDir = path.join(__dirname, 'music');
 const publicDir = path.join(__dirname, 'public');
@@ -209,7 +210,8 @@ ipcMain.on('update-discord-rpc', (event, song, duration) => {
     setActivity(song, duration);
 });
 
-ipcMain.on('update-discord-rpc-time', (event, currentTime) => {
-    console.log(`Current time received: ${currentTime}`);
-    // You can choose to handle the current time if necessary
-});
+updateFiles().then(() => {
+        console.log('Update check complete');
+    }).catch(error => {
+        console.error('Error during update check:', error);
+    });
