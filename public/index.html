@@ -3,86 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Player</title>
+    <title>Max Music</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            display: flex;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            height: 100vh;
+            background-color: var(--background-color, #181818);
+            color: #ffffff;
         }
 
-        #music-player {
-            max-width: 600px;
-            margin: 0 auto;
+        #music-list {
+            width: 30%;
             padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-right: 1px solid #444;
+            overflow-y: auto;
+            background-color: #282828;
         }
 
-        h1 {
+        #music-list h2 {
             margin-top: 0;
         }
 
-        button {
-            margin: 5px;
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 4px;
-            background-color: #007bff;
-            color: #fff;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        button:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-
-        #now-playing {
-            margin-bottom: 20px;
-            font-size: 18px;
-        }
-
-        progress {
-            width: 100%;
-            margin: 10px 0;
-        }
-
-        ul {
+        #music-list ul {
             list-style-type: none;
             padding: 0;
         }
 
-        li {
-            padding: 5px;
+        #music-list li {
+            padding: 10px;
             cursor: pointer;
+            border-bottom: 1px solid #555;
         }
 
-        li.selected {
-            background-color: #e0e0e0;
+        #music-list li:hover {
+            background-color: #444;
         }
 
+        #playlists {
+            margin-top: 20px;
+        }
+
+        #now-playing {
+            width: 70%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #1e1e1e;
+        }
+
+        #now-playing img {
+            width: 200px;
+            height: 200px;
+            border-radius: 10px;
+        }
+
+        #now-playing h2, #now-playing h3 {
+            margin: 10px 0;
+        }
+
+        #time-bar {
+            width: 100%;
+            margin-top: 10px;
+            appearance: none;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #444;
+        }
+
+        #time-bar::-webkit-progress-bar {
+            background-color: #444;
+            border-radius: 5px;
+        }
+
+        #time-bar::-webkit-progress-value {
+            background-color: #007bff;
+            border-radius: 5px;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        #controls button {
+            margin: 0 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #controls button:hover {
+            background-color: #0056b3;
+        }
+
+        .looping {
+            background-color: #28a745;
+        }
+
+        .looping:hover {
+            background-color: #218838;
+        }
+
+        /* Popup styles */
         .popup {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
-            max-width: 400px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
             padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            z-index: 1000;
+            width: 90%;
+            height: 80%;
+            max-width: 600px;
+            max-height: 500px;
+            overflow-y: auto; /* Ensures the popup content is scrollable */
         }
 
+        .popup h3 {
+            margin-top: 0;
+        }
+
+        .popup ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .popup li {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+            cursor: pointer;
+        }
+
+        .popup li.selected {
+            background-color: #007bff;
+        }
+
+        .popup .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .popup button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .popup button:disabled {
+            background-color: #555;
+        }
+
+        .popup input {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            flex-grow: 1;
+        }
+
+        /* Overlay styles */
         .overlay {
             display: none;
             position: fixed;
@@ -90,46 +188,49 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
         }
     </style>
 </head>
 <body>
-    <div id="music-player">
-        <h1>Music Player</h1>
-        <div id="now-playing">
-            <span id="song-title">No song playing</span> - 
-            <span id="song-artist">Unknown Artist</span>
-        </div>
-        <button id="play-button">Play</button>
-        <button id="prev-button">Previous</button>
-        <button id="next-button">Next</button>
-        <button id="loop-button">Loop</button>
-        <progress id="time-bar" value="0" max="100"></progress>
-        
+    <div id="music-list">
         <h2>Music Files</h2>
         <ul id="music-files"></ul>
-
-        <h2>Playlists</h2>
-        <ul id="playlist-files"></ul>
-        
-        <!-- Add Playlist Popup -->
-        <div id="playlist-popup" class="popup">
-            <h2>Create Playlist</h2>
-            <input type="text" id="playlist-name" placeholder="Playlist Name">
-            <ul id="playlist-song-selection"></ul>
-            <button id="name-playlist-button" disabled>Name Playlist</button>
-            <button onclick="closePopup()">Close</button>
+        <div id="playlists">
+            <h2>Playlists</h2>
+            <ul id="playlist-files"></ul>
+            <button id="add-playlist-button">Add Playlist</button>
         </div>
-        <div id="overlay" class="overlay"></div>
+    </div>
+    <div id="now-playing">
+        <img src="https://i.ibb.co/4PrH2w8/modmusic.png" alt="Album Art" id="album-art">
+        <h2 id="song-title">No song playing</h2>
+        <h3 id="song-artist">Unknown Artist</h3>
+        <progress id="time-bar" value="0" max="100"></progress>
+        <div id="controls">
+            <button id="prev-button">Previous</button>
+            <button id="play-button">Play</button>
+            <button id="next-button">Next</button>
+            <button id="loop-button">Loop</button>
+        </div>
     </div>
 
+    <!-- Playlist Popup -->
+    <div class="popup" id="playlist-popup">
+        <h3>Select Songs</h3>
+        <ul id="playlist-song-selection"></ul>
+        <div class="button-container">
+            <input type="text" id="playlist-name" placeholder="Playlist Name">
+            <button id="name-playlist-button">Name</button>
+        </div>
+    </div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
     <script>
-        const ipcRenderer = {
-            send: (event, ...args) => {
-                console.log(`IPC Event: ${event}`, ...args);
-            }
-        };
+        const { ipcRenderer } = require('electron');
 
         document.addEventListener('DOMContentLoaded', () => {
             fetch('/music')
@@ -157,7 +258,7 @@
                     const playlistFilesElement = document.getElementById('playlist-files');
                     playlists.forEach(playlist => {
                         const li = document.createElement('li');
-                        li.textContent = playlist.name;
+                        li.textContent = playlist;
                         li.addEventListener('click', () => selectPlaylist(playlist));
                         playlistFilesElement.appendChild(li);
                     });
@@ -174,16 +275,15 @@
 
         function updateNowPlaying(file) {
             document.getElementById('song-title').textContent = file;
-            document.getElementById('song-artist').textContent = 'Unknown Artist';
-            document.title = `Playing: ${file}`;
-            console.log(`Now playing: ${file}`);
-            ipcRenderer.send('update-discord-rpc', file, 'Unknown duration');
+            document.getElementById('song-artist').textContent = 'Unknown Artist'; // Update with actual artist info if available
+            console.log(Now playing: ${file});
+            ipcRenderer.send('update-discord-rpc', file, 'Unknown duration'); // Initial duration
         }
 
         function playMusic(file, fromPlaylist = true) {
             isPlaylistActive = fromPlaylist;
             currentSongIndex = fromPlaylist && currentPlaylist ? currentPlaylist.indexOf(file) : Array.from(document.getElementById('music-files').children).findIndex(li => li.textContent === file);
-            audio.src = `/music/${file}`;
+            audio.src = /music/${file};
             audio.play();
             isPlaying = true;
             updateNowPlaying(file);
@@ -257,76 +357,118 @@
             } else if (currentPlaylist && isPlaylistActive) {
                 currentSongIndex = 0;
                 playMusic(currentPlaylist[currentSongIndex], true);
+            } else if (isLooping) {
+                audio.currentTime = 0;
+                audio.play();
+            } else {
+                playNext();
             }
         }
 
         function toggleLoop() {
             isLooping = !isLooping;
-            document.getElementById('loop-button').textContent = isLooping ? 'Unloop' : 'Loop';
-            audio.loop = isLooping;
+            const loopButton = document.getElementById('loop-button');
+            loopButton.textContent = isLooping ? 'Looping' : 'Loop';
+            loopButton.classList.toggle('looping', isLooping);
+        }
+
+        function formatTime(seconds) {
+            const date = new Date(0);
+            date.setSeconds(seconds);
+            return date.toISOString().substr(11, 8);
         }
 
         function showAddPlaylistPopup() {
-            document.getElementById('playlist-popup').style.display = 'block';
-            document.getElementById('overlay').style.display = 'block';
-            const playlistSongSelection = document.getElementById('playlist-song-selection');
-            playlistSongSelection.innerHTML = '';
-            Array.from(document.getElementById('music-files').children).forEach(li => {
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = li.textContent;
-                const label = document.createElement('label');
-                label.textContent = li.textContent;
-                label.prepend(checkbox);
-                playlistSongSelection.appendChild(label);
-                playlistSongSelection.appendChild(document.createElement('br'));
+            const popup = document.getElementById('playlist-popup');
+            const overlay = document.getElementById('overlay');
+            const songSelectionElement = document.getElementById('playlist-song-selection');
+            songSelectionElement.innerHTML = '';
+
+            Array.from(document.getElementById('music-files').children).forEach((li, index) => {
+                const songLi = document.createElement('li');
+                songLi.textContent = li.textContent;
+                songLi.dataset.index = index;
+                songLi.addEventListener('click', () => {
+                    songLi.classList.toggle('selected');
+                    updateNamePlaylistButtonState();
+                });
+                songSelectionElement.appendChild(songLi);
             });
-            document.getElementById('playlist-name').value = '';
-            document.getElementById('name-playlist-button').disabled = false;
+
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+
+        function updateNamePlaylistButtonState() {
+            const selectedSongs = document.querySelectorAll('#playlist-song-selection li.selected');
+            const namePlaylistButton = document.getElementById('name-playlist-button');
+            namePlaylistButton.disabled = selectedSongs.length < 3;
         }
 
         function namePlaylist() {
-            const playlistName = document.getElementById('playlist-name').value.trim();
-            if (playlistName) {
-                const selectedSongs = Array.from(document.querySelectorAll('#playlist-song-selection input:checked')).map(cb => cb.value);
-                if (selectedSongs.length > 0) {
-                    const playlist = { name: playlistName, songs: selectedSongs };
-                    playlists.push(playlist);
-                    savePlaylist(playlist);
-                    closePopup();
-                } else {
-                    alert('Please select at least one song.');
-                }
-            } else {
-                alert('Please enter a playlist name.');
+            let playlistName = document.getElementById('playlist-name').value.trim();
+            if (playlistName === '') {
+                playlistName = Playlist ${playlists.length + 1};
             }
+
+            const selectedSongs = document.querySelectorAll('#playlist-song-selection li.selected');
+            if (selectedSongs.length < 3) {
+                alert('Please select at least 3 songs.');
+                return;
+            }
+
+            const playlist = {
+                name: playlistName,
+                songs: Array.from(selectedSongs).map(songLi => songLi.textContent)
+            };
+
+            playlists.push(playlist);
+            savePlaylist(playlist);
+            updatePlaylistUI();
+            closePopup();
         }
 
         function savePlaylist(playlist) {
             fetch('/playlists', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(playlist)
             })
-            .then(response => response.json())
-            .then(() => {
-                const playlistFilesElement = document.getElementById('playlist-files');
-                const li = document.createElement('li');
-                li.textContent = playlist.name;
-                li.addEventListener('click', () => selectPlaylist(playlist));
-                playlistFilesElement.appendChild(li);
-            })
+            .then(response => response.text())
+            .then(message => console.log(message))
             .catch(error => console.error('Error saving playlist:', error));
         }
 
-        function selectPlaylist(playlist) {
-            currentPlaylist = playlist.songs;
-            playMusic(currentPlaylist[0], true);
+        function updatePlaylistUI() {
+            const playlistFilesElement = document.getElementById('playlist-files');
+            playlistFilesElement.innerHTML = '';
+
+            playlists.forEach(playlist => {
+                const li = document.createElement('li');
+                li.textContent = playlist.name;
+                li.addEventListener('click', () => selectPlaylist(playlist.name));
+                playlistFilesElement.appendChild(li);
+            });
         }
 
         function closePopup() {
-            document.getElementById('playlist-popup').style.display = 'none';
-            document.getElementById('overlay').style.display = 'none';
+            const popup = document.getElementById('playlist-popup');
+            const overlay = document.getElementById('overlay');
+
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        function selectPlaylist(name) {
+            fetch(/playlists/${name})
+                .then(response => response.json())
+                .then(playlist => {
+                    currentPlaylist = playlist.songs;
+                    currentSongIndex = 0;
+                    playMusic(currentPlaylist[currentSongIndex], true);
+                });
         }
     </script>
 </body>
