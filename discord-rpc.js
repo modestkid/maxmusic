@@ -23,8 +23,10 @@ function setActivity(song, duration) {
         details: `Listening to ${song}`,
         state: `Duration: ${duration}`,
         startTimestamp: Date.now(),
-        largeImageKey: 'largeimage', // Replace with your image key
+        largeImageKey: 'bigimage', // Replace with your image key
         largeImageText: 'Max Music',
+        SmallImageKey: 'smallimage', // Replace with your image key
+        SmallImageText: 'by modestkidstudio',
         instance: false,
     }).catch(console.error);
 }
