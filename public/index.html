@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Player</title>
+    <title>MaxMusic</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -276,6 +276,7 @@
         function updateNowPlaying(file) {
             document.getElementById('song-title').textContent = file;
             document.getElementById('song-artist').textContent = 'Unknown Artist'; // Update with actual artist info if available
+            document.title = `MaxMusic - ${file}`;
             console.log(`Now playing: ${file}`);
             ipcRenderer.send('update-discord-rpc', file, 'Unknown duration'); // Initial duration
         }
