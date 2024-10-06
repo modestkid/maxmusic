@@ -181,6 +181,8 @@ function createWindow() {
         }
     });
 
+    mainWindow.setMenu(null);
+
     mainWindow.loadURL(`http://localhost:${server.address().port}`);
 
     mainWindow.on('closed', function () {
