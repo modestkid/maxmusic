@@ -7,7 +7,7 @@ const { setActivity, startRpc } = require('./discord-rpc');
 const { updateFiles } = require('./updatescript');
 
 const expressApp = express();
-const port = 3000;
+const port = 3004;
 
 const musicDir = path.join(__dirname, 'music');
 const publicDir = path.join(__dirname, 'public');
