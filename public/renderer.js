@@ -19,7 +19,7 @@ const source = audioContext.createMediaElementSource(audio);
 
 source.connect(analyser);
 analyser.connect(audioContext.destination);
-analyser.fftSize = 500;
+analyser.fftSize = 256;
 const bufferLength = analyser.frequencyBinCount;
 const dataArray = new Uint8Array(bufferLength);
 
