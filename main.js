@@ -4,9 +4,10 @@ const express = require('express');
 const formidable = require('formidable');
 const fs = require('fs');
 const { setActivity, startRpc } = require('./discord-rpc');
+const { updateFiles } = require('./updatescript');
 
 const expressApp = express();
-const port = 3004;
+const port = 3000;
 
 const musicDir = path.join(__dirname, 'music');
 const publicDir = path.join(__dirname, 'public');
@@ -210,3 +211,9 @@ ipcMain.on('update-discord-rpc', (event, song, duration) => {
     console.log(`Received update-discord-rpc event: song = ${song}, duration = ${duration}`);
     setActivity(song, duration);
 });
+
+updateFiles().then(() => {
+        console.log('Update check complete');
+    }).catch(error => {
+        console.error('Error during update check:', error);
+    });
