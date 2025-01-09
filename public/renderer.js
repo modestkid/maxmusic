@@ -135,33 +135,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listener for the playlist naming button
-    document.getElementById('name-playlist-button').addEventListener('click', () => {
-        const playlistName = document.getElementById('playlist-name').value.trim();
-        if (playlistName) {
-            const selectedSongs = [];
-            const playlistSongSelection = document.getElementById('playlist-song-selection').children;
-            for (let song of playlistSongSelection) {
-                if (song.style.backgroundColor === 'rgb(51, 51, 51)') {
-                    selectedSongs.push(song.textContent);
-                }
+    // Modify the playlist name creation logic to send to main process
+document.getElementById('name-playlist-button').addEventListener('click', () => {
+    const playlistName = document.getElementById('playlist-name').value.trim();
+    if (playlistName) {
+        const selectedSongs = [];
+        const playlistSongSelection = document.getElementById('playlist-song-selection').children;
+        for (let song of playlistSongSelection) {
+            if (song.style.backgroundColor === 'rgb(51, 51, 51)') {
+                selectedSongs.push(song.textContent);
             }
+        }
 
-            if (selectedSongs.length > 0) {
-                // Create a new playlist object
-                playlists.push({ name: playlistName, songs: selectedSongs });
-                updatePlaylistDisplay();
-                alert(`Playlist "${playlistName}" created with ${selectedSongs.length} song(s)!`);
-            } else {
-                alert("Please select at least one song.");
-            }
+        if (selectedSongs.length > 0) {
+            // Create a new playlist object
+            const newPlaylist = { name: playlistName, songs: selectedSongs };
+
+            // Send the new playlist to the main process to be saved
+            ipcRenderer.send('save-playlist', newPlaylist);
+
+            alert(`Playlist "${playlistName}" created with ${selectedSongs.length} song(s)!`);
         } else {
-            alert("Please enter a playlist name.");
+            alert("Please select at least one song.");
         }
 
         // Hide the popup
         document.getElementById('playlist-popup').style.display = 'none';
         document.getElementById('overlay').style.display = 'none';
-    });
+    } else {
+        alert("Please enter a playlist name.");
+    }
+});
 
     // Function to update the playlist display
     function updatePlaylistDisplay() {
