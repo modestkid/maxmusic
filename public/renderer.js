@@ -9,8 +9,8 @@ const visualizerCanvas = document.getElementById('visualizer');
 const ctx = visualizerCanvas.getContext('2d');
 
 // Ensure canvas dimensions are correct
-visualizerCanvas.width = document.getElementById('now-playing').offsetWidth;  // Take the width of the #now-playing div
-visualizerCanvas.height = document.getElementById('now-playing').offsetHeight;  // Take the height of the #now-playing div
+visualizerCanvas.width = document.getElementById('now-playing').offsetWidth;
+visualizerCanvas.height = document.getElementById('now-playing').offsetHeight;
 
 // Visualizer setup
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -19,7 +19,7 @@ const source = audioContext.createMediaElementSource(audio);
 
 source.connect(analyser);
 analyser.connect(audioContext.destination);
-analyser.fftSize = 266;
+analyser.fftSize = 256;
 const bufferLength = analyser.frequencyBinCount;
 const dataArray = new Uint8Array(bufferLength);
 
@@ -34,11 +34,10 @@ function drawVisualizer() {
 
     for (let i = 0; i < bufferLength; i++) {
         const barHeight = dataArray[i];
-        
-        // Create a rainbow effect based on the frequency index (i)
-        const red = Math.sin(i * 0.1 + 0) * 127 + 128; // Red component
-        const green = Math.sin(i * 0.1 + 2) * 127 + 128; // Green component
-        const blue = Math.sin(i * 0.1 + 4) * 127 + 128; // Blue component
+
+        const red = Math.sin(i * 0.1 + 0) * 127 + 128;
+        const green = Math.sin(i * 0.1 + 2) * 127 + 128;
+        const blue = Math.sin(i * 0.1 + 4) * 127 + 128;
 
         ctx.fillStyle = `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${Math.floor(blue)})`;
         ctx.fillRect(x, visualizerCanvas.height - barHeight / 2, barWidth, barHeight / 2);
@@ -53,9 +52,7 @@ drawVisualizer();
 audio.addEventListener('loadedmetadata', () => {
     totalTime.textContent = formatTime(audio.duration);
     timeBar.max = audio.duration;
-
-    // Send Discord RPC after the duration is loaded
-    ipcRenderer.send('update-discord-rpc', audio.src, formatTime(audio.duration));
+    ipcRenderer.send('update-discord-rpc', formatSongTitle(audio.src), formatTime(audio.duration));
 });
 
 audio.addEventListener('timeupdate', () => {
@@ -63,7 +60,6 @@ audio.addEventListener('timeupdate', () => {
     timeBar.value = audio.currentTime;
 });
 
-// Handle time bar click to change the song position
 timeBar.addEventListener('click', (e) => {
     const rect = timeBar.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -71,23 +67,21 @@ timeBar.addEventListener('click', (e) => {
     audio.currentTime = percentage * audio.duration;
 });
 
-// Helper functions
 function formatTime(seconds) {
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-// Music and playlist logic
+function formatSongTitle(filePath) {
+    const fileName = filePath.split('/').pop();
+    return fileName.replace(/\.mp3$/, '');
+}
+
 let currentSongIndex = 0;
 let playlist = [];
 
-// Fetch and load the playlist
 document.addEventListener('DOMContentLoaded', () => {
-
-    let playlist = [];
-    let playlists = []; // Array to store playlists
-
     fetch('/music')
         .then(response => response.json())
         .then(files => {
@@ -105,160 +99,59 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prev-button').addEventListener('click', playPrevious);
     document.getElementById('next-button').addEventListener('click', playNext);
     document.getElementById('loop-button').addEventListener('click', toggleLoop);
+});
 
-    // Add event listener for 'Add Playlist' button
-    document.getElementById('add-playlist-button').addEventListener('click', () => {
-        // Clear previous selections in the playlist popup
-        const playlistSongSelection = document.getElementById('playlist-song-selection');
-        playlistSongSelection.innerHTML = ''; // Clear any existing list items
-
-        // Populate the popup with the list of songs
-        playlist.forEach((song, index) => {
-            const li = document.createElement('li');
-            li.textContent = song;
-            li.addEventListener('click', () => {
-                // Toggle selection for the song
-                if (li.style.backgroundColor === 'rgb(51, 51, 51)') {
-                    // Deselect if already selected
-                    li.style.backgroundColor = ''; // Remove highlight
-                } else {
-                    // Select the song
-                    li.style.backgroundColor = '#333'; // Highlight the selected song
-                }
-            });
-            playlistSongSelection.appendChild(li);
-        });
-
-        // Show the popup and overlay
-        document.getElementById('playlist-popup').style.display = 'block';
-        document.getElementById('overlay').style.display = 'block';
-    });
-
-    // Event listener for the playlist naming button
-    // Modify the playlist name creation logic to send to main process
-document.getElementById('name-playlist-button').addEventListener('click', () => {
-    const playlistName = document.getElementById('playlist-name').value.trim();
-    if (playlistName) {
-        const selectedSongs = [];
-        const playlistSongSelection = document.getElementById('playlist-song-selection').children;
-        for (let song of playlistSongSelection) {
-            if (song.style.backgroundColor === 'rgb(51, 51, 51)') {
-                selectedSongs.push(song.textContent);
-            }
-        }
-
-        if (selectedSongs.length > 0) {
-            // Create a new playlist object
-            const newPlaylist = { name: playlistName, songs: selectedSongs };
-
-            // Send the new playlist to the main process to be saved
-            ipcRenderer.send('save-playlist', newPlaylist);
-
-            alert(`Playlist "${playlistName}" created with ${selectedSongs.length} song(s)!`);
-        } else {
-            alert("Please select at least one song.");
-        }
-
-        // Hide the popup
-        document.getElementById('playlist-popup').style.display = 'none';
-        document.getElementById('overlay').style.display = 'none';
+audio.addEventListener('ended', () => {
+    if (playlist.length > 0) {
+        playNext();
     } else {
-        alert("Please enter a playlist name.");
+        console.warn("No more songs to play.");
+        document.getElementById('song-title').textContent = "End of Playlist";
+        document.getElementById('play-button').textContent = 'Play';
     }
 });
 
-    // Function to update the playlist display
-    function updatePlaylistDisplay() {
-        const playlistFilesElement = document.getElementById('playlist-files');
-        playlistFilesElement.innerHTML = ''; // Clear existing playlists
-
-        playlists.forEach((playlist, index) => {
-            const li = document.createElement('li');
-            li.textContent = playlist.name;
-            li.dataset.index = index;
-
-            // Add event listener to play songs when clicked
-            li.addEventListener('click', () => playPlaylist(index));
-
-            // Add event listener for right-click (context menu)
-            li.addEventListener('contextmenu', (event) => {
-                event.preventDefault(); // Prevent default context menu
-                showContextMenu(event, li);
-            });
-
-            playlistFilesElement.appendChild(li);
-        });
-    }
-
-    // Function to play songs in a playlist
-    function playPlaylist(index) {
-        const selectedPlaylist = playlists[index];
-        let currentSongIndex = 0; // Start from the first song in the playlist
-
-        // Function to play the next song in the playlist
-        function playNextSong() {
-            if (currentSongIndex < selectedPlaylist.songs.length) {
-                playMusic(selectedPlaylist.songs[currentSongIndex], currentSongIndex);
-                currentSongIndex++; // Move to the next song
-            } else {
-                // If no more songs in the playlist, reset and stop playback
-                currentSongIndex = 0;
-                document.getElementById('song-title').textContent = 'End of Playlist';
-                document.getElementById('song-artist').textContent = '';
-            }
-        }
-
-        // Set the 'ended' event to play the next song when the current one finishes
-        audio.addEventListener('ended', playNextSong);
-
-        // Start playing the first song in the playlist
-        playNextSong();
-    }
-
-    // Function to play a specific song
-    function playMusic(file, index) {
+async function playMusic(file, index) {
+    try {
+        currentSongIndex = index;
         audio.src = `/music/${file}`;
-        audio.play();
-        document.getElementById('song-title').textContent = file;
+        await audio.play();
+        const songTitle = formatSongTitle(file);
+        document.getElementById('song-title').textContent = `${songTitle}`;
         document.getElementById('play-button').textContent = 'Pause';
-
-        // Send Discord RPC after the song starts playing
-        audio.addEventListener('loadedmetadata', () => {
-            ipcRenderer.send('update-discord-rpc', file, formatTime(audio.duration));
-        });
+        ipcRenderer.send('update-discord-rpc', songTitle, formatTime(audio.duration));
+    } catch (error) {
+        console.error(`Error playing ${file}:`, error);
+        playNext(); // Skip to the next song on error
     }
-
-    // Function to format time in MM:SS format
-    function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-
-    // Close popup when overlay is clicked
-    document.getElementById('overlay').addEventListener('click', () => {
-        document.getElementById('playlist-popup').style.display = 'none';
-        document.getElementById('overlay').style.display = 'none';
-    });
-});
-
-// Event listener for audio to detect when the song ends
-audio.addEventListener('ended', playNext);
-
-// Function to play music based on file and index
-function playMusic(file, index) {
-    audio.src = `/music/${file}`;
-    audio.play();
-    document.getElementById('song-title').textContent = file;
-    document.getElementById('play-button').textContent = 'Pause';
-    currentSongIndex = index; // Save the current song index
-    // Send Discord RPC after the song starts playing
-    audio.addEventListener('loadedmetadata', () => {
-        ipcRenderer.send('update-discord-rpc', file, formatTime(audio.duration));
-    });
 }
 
-// Toggle play/pause functionality
+function playNext() {
+    if (playlist.length === 0) {
+        console.warn("Playlist is empty.");
+        document.getElementById('song-title').textContent = "No Songs Available";
+        return;
+    }
+
+    currentSongIndex = (currentSongIndex + 1) % playlist.length;
+
+    if (currentSongIndex === 0 && !audio.loop) {
+        console.log("Reached the end of the playlist. Restarting.");
+    }
+
+    playMusic(playlist[currentSongIndex], currentSongIndex);
+}
+
+function playPrevious() {
+    if (playlist.length === 0) {
+        console.warn("Playlist is empty.");
+        return;
+    }
+
+    currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+    playMusic(playlist[currentSongIndex], currentSongIndex);
+}
+
 function togglePlay() {
     if (audio.paused) {
         audio.play();
@@ -269,19 +162,6 @@ function togglePlay() {
     }
 }
 
-// Play the previous song in the playlist
-function playPrevious() {
-    currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
-    playMusic(playlist[currentSongIndex], currentSongIndex);
-}
-
-// Play the next song in the playlist
-function playNext() {
-    currentSongIndex = (currentSongIndex + 1) % playlist.length;
-    playMusic(playlist[currentSongIndex], currentSongIndex);
-}
-
-// Toggle loop functionality
 function toggleLoop() {
     audio.loop = !audio.loop;
     document.getElementById('loop-button').textContent = audio.loop ? 'Looping' : 'Loop';
