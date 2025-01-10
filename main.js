@@ -213,7 +213,7 @@ ipcMain.on('update-discord-rpc', (event, song, duration) => {
 });
 
 updateFiles().then(() => {
-        console.log('Update check complete');
-    }).catch(error => {
-        console.error('Error during update check:', error);
-    });
+    console.log('Update check complete');
+}).catch(error => {
+    console.error('Error during update check:', error);
+});
