@@ -1,42 +1,36 @@
 const RPC = require('discord-rpc');
-const clientId = '1254880462535528479'; // Ensure this is correct
-
+const clientId = '1254880462535528479';
+RPC.register(clientId);
 const rpc = new RPC.Client({ transport: 'ipc' });
 
+let currentActivity = {};
+
 rpc.on('ready', () => {
-    console.log('Discord RPC ready');
-    setActivity('No song', '0:00'); // Set initial state
+  console.log('Discord RPC ready');
+  setActivity({ song: 'Idle', start: Date.now(), end: Date.now() });
 });
 
-rpc.on('error', (error) => {
-    console.error('Discord RPC error:', error);
-});
+rpc.on('error', console.error);
 
-function setActivity(song, duration) {
-    console.log(`Setting Discord RPC activity: song = ${song}, duration = ${duration}`);
-    if (!rpc) {
-        console.error('RPC client not initialized');
-        return;
-    }
-
-    rpc.setActivity({
-        details: `Listening to ${song}`,
-        state: `Duration: ${duration}`,
-        startTimestamp: Date.now(),
-        largeImageKey: 'bigimage', // Replace with your image key
-        largeImageText: 'Max Music',
-        smallImageKey: 'smallimage', // Replace with your image key
-        smallImageText: 'by modestkidstudio',
-        instance: false,
-    }).catch(console.error);
+function setActivity({ song, start, end }) {
+  if (!rpc) return;
+  rpc.setActivity({
+    details: `🎵 ${song}`,
+    state: `Listening`,
+    startTimestamp: start,
+    endTimestamp: end,
+    largeImageKey: 'bigimage',          // define in your bot assets
+    largeImageText: song,
+    smallImageKey: 'play_icon',          // show play/pause icon
+    smallImageText: 'MaxMusic Player',
+    instance: false,
+    buttons: [
+      { label: 'Get MaxMusic', url: 'https://github.com/yourrepo' },
+      { label: 'Join Support', url: 'https://discord.gg/yourinvite' }
+    ]
+  }).catch(console.error);
 }
 
-function startRpc() {
-    RPC.register(clientId);
-    rpc.login({ clientId }).catch(console.error);
-}
+rpc.login({ clientId }).catch(console.error);
 
-module.exports = {
-    setActivity,
-    startRpc,
-};
+module.exports = { setActivity };
