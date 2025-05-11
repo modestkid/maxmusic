@@ -1,168 +1,130 @@
 const { ipcRenderer } = require('electron');
-
-// Core elements
 const audio = new Audio();
-const timeBar = document.getElementById('time-bar');
-const elapsedTime = document.getElementById('elapsed-time');
-const totalTime = document.getElementById('total-time');
-const visualizerCanvas = document.getElementById('visualizer');
-const ctx = visualizerCanvas.getContext('2d');
-
-// Ensure canvas dimensions are correct
-visualizerCanvas.width = document.getElementById('now-playing').offsetWidth;
-visualizerCanvas.height = document.getElementById('now-playing').offsetHeight;
-
-// Visualizer setup
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-const analyser = audioContext.createAnalyser();
-const source = audioContext.createMediaElementSource(audio);
-
+const analyser = new (window.AudioContext?.prototype.createAnalyser ? AudioContext : webkitAudioContext)().createAnalyser();
+const source = new (window.AudioContext || webkitAudioContext)().createMediaElementSource(audio);
 source.connect(analyser);
-analyser.connect(audioContext.destination);
+analyser.connect((window.AudioContext || webkitAudioContext)().destination);
 analyser.fftSize = 256;
-const bufferLength = analyser.frequencyBinCount;
-const dataArray = new Uint8Array(bufferLength);
 
-function drawVisualizer() {
-    requestAnimationFrame(drawVisualizer);
-
-    analyser.getByteFrequencyData(dataArray);
-    ctx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
-
-    const barWidth = (visualizerCanvas.width / bufferLength) * 2.5;
-    let x = 0;
-
-    for (let i = 0; i < bufferLength; i++) {
-        const barHeight = dataArray[i];
-
-        const red = Math.sin(i * 0.1 + 0) * 127 + 128;
-        const green = Math.sin(i * 0.1 + 2) * 127 + 128;
-        const blue = Math.sin(i * 0.1 + 4) * 127 + 128;
-
-        ctx.fillStyle = `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${Math.floor(blue)})`;
-        ctx.fillRect(x, visualizerCanvas.height - barHeight / 2, barWidth, barHeight / 2);
-        x += barWidth + 1;
-    }
+const canvas = document.getElementById('visualizer');
+const ctx = canvas.getContext('2d');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+function resizeCanvas() {
+  canvas.width = document.getElementById('now-playing').clientWidth;
+  canvas.height = document.getElementById('now-playing').clientHeight;
 }
 
-// Start the visualizer once the page loads and the audio is ready
-drawVisualizer();
+// Draw color-shifting bars
+function draw() {
+  requestAnimationFrame(draw);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const w = canvas.width / data.length * 1.5;
+  let x = 0;
+  data.forEach((v,i) => {
+    const h = v * 1.5;
+    const r = Math.sin(i*0.1)*128+128;
+    const g = Math.sin(i*0.1+2)*128+128;
+    const b = Math.sin(i*0.1+4)*128+128;
+    ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.8)`;
+    ctx.fillRect(x,canvas.height-h, w, h);
+    x+=w+1;
+  });
+}
+draw();
 
-// Event listeners for audio
+// DOM refs
+const listEl = document.getElementById('music-list');
+const playlistEl = document.getElementById('playlist-list');
+const searchEl = document.getElementById('search');
+const playBtn = document.getElementById('play');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const loopBtn = document.getElementById('loop');
+const volEl = document.getElementById('volume');
+const elapsedEl = document.getElementById('elapsed');
+const durationEl = document.getElementById('duration');
+const progBar = document.getElementById('progress-bar');
+const titleEl = document.getElementById('song-title');
+const artistEl = document.getElementById('song-artist');
+const artEl = document.getElementById('album-art');
+
+let tracks = [], current = 0;
+
+// Load files
+fetch('/music').then(r=>r.json()).then(files=>{
+  tracks = files;
+  renderList(tracks);
+});
+
+// Render list
+function renderList(arr){
+  listEl.innerHTML = '';
+  arr.forEach((f,i)=>{
+    const div = document.createElement('div');
+    div.className='list-item';
+    div.innerHTML = `<span>${f}</span><i class="fa fa-play"></i>`;
+    div.onclick = ()=>play(i);
+    listEl.appendChild(div);
+  });
+}
+
+// Search
+searchEl.addEventListener('input',e=>{
+  renderList(tracks.filter(t=>t.toLowerCase().includes(e.target.value.toLowerCase())));
+});
+
+// Playback
 audio.addEventListener('loadedmetadata', () => {
-    totalTime.textContent = formatTime(audio.duration);
-    timeBar.max = audio.duration;
-    ipcRenderer.send('update-discord-rpc', formatSongTitle(audio.src), formatTime(audio.duration));
+  durationEl.textContent = format(audio.duration);
+  progBar.max = audio.duration;
+  sendRPC('START');
 });
-
 audio.addEventListener('timeupdate', () => {
-    elapsedTime.textContent = formatTime(audio.currentTime);
-    timeBar.value = audio.currentTime;
+  elapsedEl.textContent = format(audio.currentTime);
+  progBar.value = audio.currentTime;
+  sendRPC('UPDATE');
 });
+audio.addEventListener('ended', ()=> next());
 
-timeBar.addEventListener('click', (e) => {
-    const rect = timeBar.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    audio.currentTime = percentage * audio.duration;
-});
+// Controls
+playBtn.onclick = ()=> audio.paused ? audio.play() : audio.pause();
+audio.onplay = ()=> { playBtn.innerHTML = '<i class="fa fa-pause"></i>'; sendRPC('START'); };
+audio.onpause = ()=> { playBtn.innerHTML = '<i class="fa fa-play"></i>'; sendRPC('PAUSE'); };
+prevBtn.onclick = prev;
+nextBtn.onclick = next;
+loopBtn.onclick = ()=> audio.loop = !audio.loop;
+volEl.oninput = ()=> audio.volume = volEl.value;
 
-function formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+function play(idx){
+  current = idx;
+  audio.src = `/music/${tracks[idx]}`;
+  audio.play().catch(console.error);
+  const [name, artist='Unknown'] = tracks[idx].replace(/\.mp3$/,'').split(' - ');
+  titleEl.textContent = name;
+  artistEl.textContent = artist;
+  // Optionally fetch album-art per track
 }
 
-function formatSongTitle(filePath) {
-    const fileName = filePath.split('/').pop();
-    return fileName.replace(/\.mp3$/, '');
+function prev(){ current=(current-1+tracks.length)%tracks.length; play(current); }
+function next(){ current=(current+1)%tracks.length; play(current); }
+
+function format(sec){
+  const m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return `${m}:${s<10?'0':''}${s}`;
 }
 
-let currentSongIndex = 0;
-let playlist = [];
-
-document.addEventListener('DOMContentLoaded', () => {
-    fetch('/music')
-        .then(response => response.json())
-        .then(files => {
-            playlist = files;
-            const musicFilesElement = document.getElementById('music-files');
-            files.forEach((file, index) => {
-                const li = document.createElement('li');
-                li.textContent = file;
-                li.addEventListener('click', () => playMusic(file, index));
-                musicFilesElement.appendChild(li);
-            });
-        });
-
-    document.getElementById('play-button').addEventListener('click', togglePlay);
-    document.getElementById('prev-button').addEventListener('click', playPrevious);
-    document.getElementById('next-button').addEventListener('click', playNext);
-    document.getElementById('loop-button').addEventListener('click', toggleLoop);
-});
-
-audio.addEventListener('ended', () => {
-    if (playlist.length > 0) {
-        playNext();
-    } else {
-        console.warn("No more songs to play.");
-        document.getElementById('song-title').textContent = "End of Playlist";
-        document.getElementById('play-button').textContent = 'Play';
-    }
-});
-
-async function playMusic(file, index) {
-    try {
-        currentSongIndex = index;
-        audio.src = `/music/${file}`;
-        await audio.play();
-        const songTitle = formatSongTitle(file);
-        document.getElementById('song-title').textContent = `${songTitle}`;
-        document.getElementById('play-button').textContent = 'Pause';
-        ipcRenderer.send('update-discord-rpc', songTitle, formatTime(audio.duration));
-    } catch (error) {
-        console.error(`Error playing ${file}:`, error);
-        playNext(); // Skip to the next song on error
-    }
-}
-
-function playNext() {
-    if (playlist.length === 0) {
-        console.warn("Playlist is empty.");
-        document.getElementById('song-title').textContent = "No Songs Available";
-        return;
-    }
-
-    currentSongIndex = (currentSongIndex + 1) % playlist.length;
-
-    if (currentSongIndex === 0 && !audio.loop) {
-        console.log("Reached the end of the playlist. Restarting.");
-    }
-
-    playMusic(playlist[currentSongIndex], currentSongIndex);
-}
-
-function playPrevious() {
-    if (playlist.length === 0) {
-        console.warn("Playlist is empty.");
-        return;
-    }
-
-    currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
-    playMusic(playlist[currentSongIndex], currentSongIndex);
-}
-
-function togglePlay() {
-    if (audio.paused) {
-        audio.play();
-        document.getElementById('play-button').textContent = 'Pause';
-    } else {
-        audio.pause();
-        document.getElementById('play-button').textContent = 'Play';
-    }
-}
-
-function toggleLoop() {
-    audio.loop = !audio.loop;
-    document.getElementById('loop-button').textContent = audio.loop ? 'Looping' : 'Loop';
+// Discord RPC
+let rpcState = null;
+function sendRPC(event){
+  const song = titleEl.textContent;
+  const dur = audio.duration||0;
+  const now = Date.now();
+  ipcRenderer.send('update-discord-rpc', {
+    event, song,
+    start: audio.played.length? now - audio.currentTime*1000 : now,
+    end: now + (dur - audio.currentTime)*1000
+  });
 }
